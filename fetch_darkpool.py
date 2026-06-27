@@ -1,41 +1,35 @@
-"""FINRA 暗池数据 — GitHub Actions 日更（美国IP免墙）"""
-import requests, json, os, sys
-from datetime import datetime
+"""FINRA暗池数据 — 走OTC公开下载（免鉴权）"""
+import requests, json, sys
+from datetime import datetime, timedelta
 
-# FINRA OTC 公开数据下载
-FINRA_BASE = "https://cdn.finra.org/equity/otcmarket/traded"
+BASE = "https://otctransparency.finra.org/otctransparency"
 
 def fetch(tickers, date_str=None):
     if not date_str:
         date_str = datetime.now().strftime("%Y%m%d")
     
-    url = f"{FINRA_BASE}/CNMSdarkpool{date_str}.txt"
-    r = requests.get(url, timeout=30)
+    # FINRA OTC公开数据 — 按日期下载文本
+    url = f"{BASE}/download?date={date_str}"
+    r = requests.get(url, timeout=30, headers={"User-Agent": "Mozilla/5.0"})
+    
     if r.status_code != 200:
-        # 尝试前一天（周末没人交易）
-        return {"error": f"FINRA {r.status_code}", "date": date_str}
+        # 尝试前一交易日
+        yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y%m%d")
+        url = f"{BASE}/download?date={yesterday}"
+        r = requests.get(url, timeout=30, headers={"User-Agent": "Mozilla/5.0"})
+        if r.status_code != 200:
+            return {"error": f"FINRA {r.status_code}", "date": date_str}
     
     lines = r.text.strip().split("\n")
     results = {}
     
     for ticker in tickers:
         ticker = ticker.upper()
-        matches = [l for l in lines if l.startswith(f"{ticker}|")]
-        if not matches:
-            results[ticker] = {"trades": 0, "volume": 0}
-            continue
-        
-        total_vol = 0
-        for l in matches:
-            parts = l.split("|")
-            if len(parts) >= 4:
-                total_vol += int(parts[3])  # share quantity
-        
-        results[ticker] = {"trades": len(matches), "volume": total_vol}
+        matches = [l for l in lines if ticker in l]
+        results[ticker] = {"trades": len(matches), "lines_sample": matches[:3] if matches else []}
     
-    return {"date": date_str, "data": results}
+    return {"date": date_str, "source_url": url, "total_lines": len(lines), "data": results}
 
 if __name__ == "__main__":
     tickers = sys.argv[1:] if len(sys.argv) > 1 else ["AAPL","NVDA","AVGO","MRVL"]
-    result = fetch(tickers)
-    print(json.dumps(result, indent=2, ensure_ascii=False))
+    print(json.dumps(fetch(tickers), indent=2, ensure_ascii=False))
