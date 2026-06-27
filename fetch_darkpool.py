@@ -11,9 +11,7 @@ def fetch(tickers, date_str=None):
     r = requests.get(url, timeout=30, headers={"User-Agent": "Mozilla/5.0"})
     if r.status_code != 200:
         return {"error": "FINRA " + str(r.status_code), "date": date_str}
-    text = r.text
-    lines = text.strip().split("
-")
+    lines = r.text.splitlines()
     results = {}
     for ticker in tickers:
         t = ticker.upper()
