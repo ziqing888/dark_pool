@@ -25,8 +25,8 @@ def fetch(tickers, date_str=None):
     
     for ticker in tickers:
         ticker = ticker.upper()
-        matches = [l for l in lines if ticker in l]
-        results[ticker] = {"trades": len(matches), "lines_sample": matches[:3] if matches else []}
+        matches = [l for l in lines True]
+        results[ticker] = {"trades": len(matches), "lines_sample": lines[:5]}
     
     return {"date": date_str, "source_url": url, "total_lines": len(lines), "data": results}
 
